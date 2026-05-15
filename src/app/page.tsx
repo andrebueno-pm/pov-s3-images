@@ -1,65 +1,91 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import Link from "next/link";
+
+type Folder = {
+  id: string;
+  s3Key: string;
+  tags: string[];
+};
 
 export default function Home() {
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/folders")
+      .then((r) => r.json())
+      .then((data) => {
+        setFolders(data);
+        setLoading(false);
+      });
+  }, []);
+
+  const filtered = search.trim()
+    ? folders.filter(
+        (f) =>
+          f.s3Key.toLowerCase().includes(search.toLowerCase()) ||
+          f.tags.some((t) => t.toLowerCase().includes(search.toLowerCase()))
+      )
+    : folders;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="max-w-5xl mx-auto p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">S3 Image Tagger</h1>
+        <button
+          onClick={() =>
+            fetch("/api/folders/sync", { method: "POST" }).then(() =>
+              window.location.reload()
+            )
+          }
+          className="text-sm text-muted-foreground underline"
+        >
+          Sync S3
+        </button>
+      </div>
+
+      <Input
+        placeholder="Search by folder name or tag..."
+        value={search}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+        className="mb-6"
+      />
+
+      {loading ? (
+        <p className="text-muted-foreground">Loading...</p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map((folder) => (
+            <Link key={folder.s3Key} href={`/folder/${folder.s3Key}`}>
+              <Card className="p-4 hover:shadow-md transition-shadow cursor-pointer h-full">
+                <img
+                  src={`https://contract-and-events-images.s3.amazonaws.com/${folder.s3Key}/thumbnail`}
+                  alt={folder.s3Key}
+                  className="w-full h-36 object-cover rounded mb-3"
+                />
+                <p className="font-medium text-sm mb-2 truncate">{folder.s3Key}</p>
+                <div className="flex flex-wrap gap-1">
+                  {folder.tags.length === 0 ? (
+                    <span className="text-xs text-muted-foreground">no tags yet</span>
+                  ) : (
+                    folder.tags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-xs">
+                        {tag}
+                      </Badge>
+                    ))
+                  )}
+                </div>
+              </Card>
+            </Link>
+          ))}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      )}
+    </main>
   );
 }
